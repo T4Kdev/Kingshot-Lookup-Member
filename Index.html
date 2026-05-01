@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kingshot Alliance Tracker</title>
+
+  <!-- React & ReactDOM (the engine that runs your dashboard) -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+  <!-- Recharts (the charting library used by the dashboard) -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/Recharts.min.js"></script>
+
+  <!-- Babel (translates the modern JSX code so the browser can run it) -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d0b09; }
+  </style>
+
+</head>
+<body>
+
+  <!-- This is the container React will render the dashboard into -->
+
+  <div id="root"></div>
+
+  <!--
+    STEP 1: Paste your entire kingshot-dashboard.jsx file contents here,
+    replacing the comment below.
+
+    The type="text/babel" tells the browser to let Babel translate
+    the modern React/JSX code before running it — just like a
+    compiler translating source code to machine code in your CS days.
+  -->
+
+  <script type="text/babel" data-type="module">
+
+    
+import { useState, useMemo, useCallback } from “react”;
+import {
+BarChart, Bar, LineChart, Line,
+XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+} from “recharts”;
+
+/* ─────────────────────────────────────────────────────
+DESIGN TOKENS
+───────────────────────────────────────────────────── */
+const C = {
+bg:      “#0d0b09”,
+surface: “#161210”,
+card:    “#1d1912”,
+border:  “#332a1e”,
+gold:    “#c9a044”,
+goldDim: “#7a6030”,
+text:    “#e8dcc8”,
+muted:   “#7a6a55”,
+red:     “#8b1a2a”,
+green:   “#3a6b48”,
+accent:  “#b87333”,
+blue:    “#2a4a6b”,
+};
+
+/* ─────────────────────────────────────────────────────
+API LOOKUP  (kingshot.net/api/player-info)
+───────────────────────────────────────────────────── */
+// Auto-lookup is disabled in the Claude.ai sandbox (outbound requests are blocked).
+// When you deploy this to your own server, replace this stub with the real function:
+//
+//   async function lookupPlayer(playerId) {
+//     const res  = await fetch(`https://kingshot.net/api/player-info?playerId=${playerId}`);
+//     const json = await res.json();
+//     if (json.status === “success”) return { …json.data, kingdom: `K${json.data.kingdom}`, error: null };
+//     return { error: “not_found” };
+//   }
+async function lookupPlayer() { return null; }
+
+/* ─────────────────────────────────────────────────────
+MOCK ALLIANCE DATA
+───────────────────────────────────────────────────── */
+const INIT_PLAYERS = [
+{ id: 1, name: “FrostKeeper”,  fid: “45678901”, kingdom: “K47”, level: 25, power: 421_000_000, kills: 7_800_000, troops: 4_200_000, profilePhoto: null },
+{ id: 2, name: “StormCaller”,  fid: “23456789”, kingdom: “K47”, level: 22, power: 312_000_000, kills: 5_100_000, troops: 3_100_000, profilePhoto: null },
+{ id: 3, name: “ShadowBlade”,  fid: “67890123”, kingdom: “K47”, level: 24, power: 375_000_000, kills: 6_300_000, troops: 3_700_000, profilePhoto: null },
+{ id: 4, name: “IronWarden”,   fid: “12345678”, kingdom: “K47”, level: 20, power: 285_000_000, kills: 4_200_000, troops: 2_800_000, profilePhoto: null },
+{ id: 5, name: “TerraShield”,  fid: “78901234”, kingdom: “K47”, level: 19, power: 243_000_000, kills: 3_400_000, troops: 2_400_000, profilePhoto: null },
+{ id: 6, name: “DuskRaider”,   fid: “34567890”, kingdom: “K47”, level: 18, power: 198_000_000, kills: 2_900_000, troops: 1_900_000, profilePhoto: null },
+{ id: 7, name: “NightHarvest”, fid: “89012345”, kingdom: “K47”, level: 17, power: 189_000_000, kills: 2_100_000, troops: 1_800_000, profilePhoto: null },
+{ id: 8, name: “EmberLord”,    fid: “56789012”, kingdom: “K47”, level: 15, power: 156_000_000, kills: 1_200_000, troops: 1_500_000, profilePhoto: null },
+];
+
+const POWER_HISTORY = [
+{ label: “Oct”, total: 1_480 }, { label: “Nov”, total: 1_620 },
+{ label: “Dec”, total: 1_810 }, { label: “Jan”, total: 1_960 },
+{ label: “Feb”, total: 2_090 }, { label: “Apr”, total: 2_179 },
+];
+
+/* ─────────────────────────────────────────────────────
+HELPERS
+───────────────────────────────────────────────────── */
+const fmt = (n) => {
+if (!n) return “—”;
+if (n >= 1e9) return (n / 1e9).toFixed(2) + “B”;
+if (n >= 1e6) return (n / 1e6).toFixed(1) + “M”;
+if (n >= 1e3) return (n / 1e3).toFixed(0) + “K”;
+return String(n);
+};
+const fmtFull = (n) => n ? n.toLocaleString() : “—”;
+const parseNum = (s) => parseInt((s || “”).replace(/,/g, “”)) || 0;
+
+/* ─────────────────────────────────────────────────────
+AVATAR
+───────────────────────────────────────────────────── */
+function Avatar({ name, profilePhoto, size = 32 }) {
+const initials = name ? name.slice(0, 2).toUpperCase() : “?”;
+if (profilePhoto) {
+return (
+<img
+src={profilePhoto} alt={name}
+style={{ width: size, height: size, borderRadius: “50%”, border: `2px solid ${C.goldDim}`, objectFit: “cover”, flexShrink: 0 }}
+onError={e => { e.target.style.display = “none”; }}
+/>
+);
+}
+return (
+<div style={{
+width: size, height: size, borderRadius: “50%”,
+background: `linear-gradient(135deg, ${C.goldDim}55, ${C.border})`,
+border: `2px solid ${C.goldDim}`,
+display: “flex”, alignItems: “center”, justifyContent: “center”,
+fontSize: size * 0.36, color: C.gold, fontFamily: “Cinzel, serif”,
+fontWeight: 700, flexShrink: 0, letterSpacing: “0.05em”,
+}}>{initials}</div>
+);
+}
+
+/* ─────────────────────────────────────────────────────
+LOOKUP STATUS BADGE
+───────────────────────────────────────────────────── */
+function LookupStatus() {
+return (
+<div style={{ fontSize: 10, color: C.muted, fontFamily: “‘Crimson Pro’, serif”, marginTop: 4, lineHeight: 1.6 }}>
+ℹ Auto-lookup unavailable in this preview — enter details manually below.
+</div>
+);
+}
+
+/* ─────────────────────────────────────────────────────
+SHARED INPUT STYLES
+───────────────────────────────────────────────────── */
+const inp = (extra = {}) => ({
+background: C.surface, border: `1px solid ${C.border}`, color: C.text,
+padding: “8px 12px”, fontFamily: “‘Crimson Pro’, serif”, fontSize: 14,
+outline: “none”, width: “100%”, boxSizing: “border-box”, …extra,
+});
+const lbl = (text) => (
+
+  <div style={{ color: C.muted, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", fontFamily: "Cinzel, serif", marginBottom: 4 }}>
+    {text}
+  </div>
+);
+
+/* ─────────────────────────────────────────────────────
+MY PROFILE SETUP
+Shown on first visit (no profile set). User enters FID,
+API auto-fills identity, then they add their stats.
+───────────────────────────────────────────────────── */
+function MyProfileSetup({ onSave }) {
+const empty = { fid: “”, name: “”, kingdom: “”, level: “”, power: “”, kills: “”, troops: “”, profilePhoto: null };
+const [form,        setForm]        = useState(empty);
+const [lookupState, setLookupState] = useState(“idle”);
+
+const set = (k) => (e) => {
+setForm(f => ({ …f, [k]: e.target.value }));
+if (k === “fid”) setLookupState(“idle”);
+};
+
+const doLookup = useCallback(async () => {
+if (form.fid.trim().length < 4) return;
+setLookupState(“loading”);
+const r = await lookupPlayer(form.fid);
+if (!r)       { setLookupState(“idle”); return; }
+if (r.error)  { setLookupState(r.error); return; }
+setForm(f => ({
+…f,
+name:         r.name         || f.name,
+kingdom:      r.kingdom      || f.kingdom,
+level:        r.level != null ? String(r.level) : f.level,
+profilePhoto: r.profilePhoto || null,
+}));
+setLookupState(“found”);
+}, [form.fid]);
+
+const canSave = form.fid && form.name;
+
+return (
+<div style={{
+minHeight: “100vh”, background: C.bg,
+display: “flex”, alignItems: “center”, justifyContent: “center”,
+fontFamily: “‘Crimson Pro’, serif”, padding: 24,
+}}>
+<style>{`@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&display=swap'); * { box-sizing: border-box; } input::placeholder { color: ${C.muted}55; } button { transition: opacity 0.15s; cursor: pointer; } button:hover:not(:disabled) { opacity: 0.82; }`}</style>
+
+```
+  <div style={{
+    background: C.card, border: `1px solid ${C.border}`,
+    borderTop: `3px solid ${C.gold}`,
+    padding: "36px 40px", width: "100%", maxWidth: 540,
+  }}>
+    {/* Title */}
+    <div style={{ textAlign: "center", marginBottom: 32 }}>
+      <div style={{ fontSize: 11, color: C.muted, fontFamily: "Cinzel, serif", letterSpacing: "0.22em", marginBottom: 10 }}>
+        ⚔ KINGSHOT ALLIANCE TRACKER
+      </div>
+      <h1 style={{ margin: 0, fontFamily: "Cinzel, serif", fontSize: 26, fontWeight: 900, color: C.gold, letterSpacing: "0.06em" }}>
+        Set Up Your Profile
+      </h1>
+      <p style={{ color: C.muted, fontSize: 14, marginTop: 10, lineHeight: 1.6 }}>
+        Enter your Player ID to get started.<br />Your name, kingdom &amp; avatar will be auto-filled.
+      </p>
+    </div>
+
+    {/* FID field — the trigger */}
+    <div style={{ marginBottom: 20 }}>
+      {lbl("Your Player ID (FID) *")}
+      <input
+        type="text" placeholder="e.g. 8767319"
+        value={form.fid} onChange={set("fid")}
+        onBlur={doLookup}
+        onKeyDown={e => { if (e.key === "Enter") doLookup(); }}
+        style={inp({ borderColor: lookupState === "found" ? C.green : lookupState === "not_found" || lookupState === "network_error" ? C.red : C.border, fontSize: 16 })}
+        autoFocus
+      />
+      <LookupStatus />
+    </div>
+
+    {/* Avatar preview + auto-filled identity */}
+    {(form.name || form.profilePhoto) && (
+      <div style={{
+        display: "flex", alignItems: "center", gap: 16,
+        background: C.surface, border: `1px solid ${C.border}`,
+        padding: "14px 16px", marginBottom: 20,
+      }}>
+        <Avatar name={form.name} profilePhoto={form.profilePhoto} size={56} />
+        <div>
+          <div style={{ color: C.gold, fontFamily: "Cinzel, serif", fontSize: 16, fontWeight: 700 }}>
+            {form.name || "—"}
+          </div>
+          <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>
+            {form.kingdom || "—"}{form.level ? ` · Level ${form.level}` : ""} · FID {form.fid}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* If not auto-filled, allow manual name entry */}
+    {lookupState !== "found" && (
+      <div style={{ marginBottom: 20 }}>
+        {lbl("Your Governor Name *")}
+        <input type="text" placeholder="Enter manually if not auto-filled" value={form.name} onChange={set("name")} style={inp()} />
+      </div>
+    )}
+
+    {/* Combat stats */}
+    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 24 }}>
+      <div style={{ color: C.muted, fontSize: 10, fontFamily: "Cinzel, serif", letterSpacing: "0.18em", marginBottom: 14 }}>
+        ⚔ YOUR COMBAT STATS (from in-game profile)
+      </div>
+      <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          {lbl("Power")}
+          <input type="text" placeholder="421000000" value={form.power} onChange={set("power")} style={inp()} />
+        </div>
+        <div style={{ flex: 1 }}>
+          {lbl("Kills")}
+          <input type="text" placeholder="7800000" value={form.kills} onChange={set("kills")} style={inp()} />
+        </div>
+        <div style={{ flex: 1 }}>
+          {lbl("Troops")}
+          <input type="text" placeholder="4200000" value={form.troops} onChange={set("troops")} style={inp()} />
+        </div>
+      </div>
+    </div>
+
+    <button
+      onClick={() => canSave && onSave({
+        fid:          form.fid.trim(),
+        name:         form.name.trim(),
+        kingdom:      form.kingdom || "K??",
+        level:        parseInt(form.level) || null,
+        power:        parseNum(form.power),
+        kills:        parseNum(form.kills),
+        troops:       parseNum(form.troops),
+        profilePhoto: form.profilePhoto,
+      })}
+      disabled={!canSave}
+      style={{
+        width: "100%", padding: "12px 0",
+        background: canSave ? C.gold : C.border,
+        border: "none", color: canSave ? C.bg : C.muted,
+        fontFamily: "Cinzel, serif", fontSize: 13,
+        letterSpacing: "0.16em", fontWeight: 700,
+        cursor: canSave ? "pointer" : "not-allowed",
+      }}
+    >
+      ENTER THE WAR ROOM
+    </button>
+  </div>
+</div>
+```
+
+);
+}
+
+/* ─────────────────────────────────────────────────────
+MY PROFILE CARD  (shown at top of dashboard)
+───────────────────────────────────────────────────── */
+function MyProfileCard({ profile, allPlayers, onEdit }) {
+const totalPower = allPlayers.reduce((s, p) => s + p.power, 0) + profile.power;
+const rank = […allPlayers, { …profile, id: “me” }]
+.sort((a, b) => b.power - a.power)
+.findIndex(p => p.id === “me”) + 1;
+const share = totalPower > 0 ? ((profile.power / totalPower) * 100).toFixed(1) : “0.0”;
+
+return (
+<div style={{
+background: `linear-gradient(135deg, ${C.card} 0%, #221c14 100%)`,
+border: `1px solid ${C.gold}44`,
+borderLeft: `4px solid ${C.gold}`,
+padding: “20px 24px”,
+display: “flex”, alignItems: “center”, gap: 20, flexWrap: “wrap”,
+position: “relative”, overflow: “hidden”,
+}}>
+{/* Decorative glow */}
+<div style={{
+position: “absolute”, top: -30, right: -30, width: 120, height: 120,
+borderRadius: “50%”, background: C.gold, opacity: 0.04, pointerEvents: “none”,
+}} />
+
+```
+  {/* Avatar */}
+  <Avatar name={profile.name} profilePhoto={profile.profilePhoto} size={64} />
+
+  {/* Identity */}
+  <div style={{ flex: "1 1 180px" }}>
+    <div style={{ fontSize: 10, color: C.goldDim, fontFamily: "Cinzel, serif", letterSpacing: "0.2em", marginBottom: 4 }}>
+      ★ YOUR GOVERNOR
+    </div>
+    <div style={{ color: C.gold, fontFamily: "Cinzel, serif", fontSize: 20, fontWeight: 900 }}>{profile.name}</div>
+    <div style={{ color: C.muted, fontSize: 12, marginTop: 3, fontFamily: "'Crimson Pro', serif" }}>
+      FID {profile.fid} · {profile.kingdom}{profile.level ? ` · Level ${profile.level}` : ""}
+    </div>
+  </div>
+
+  {/* Stats */}
+  {[
+    { label: "Power",  value: fmt(profile.power),  sub: fmtFull(profile.power) },
+    { label: "Kills",  value: fmt(profile.kills),  sub: fmtFull(profile.kills) },
+    { label: "Troops", value: fmt(profile.troops), sub: fmtFull(profile.troops) },
+    { label: "Alliance Rank", value: `#${rank}`,   sub: `${share}% of power` },
+  ].map(({ label, value, sub }) => (
+    <div key={label} style={{ textAlign: "center", minWidth: 80 }}>
+      <div style={{ color: C.muted, fontSize: 9, fontFamily: "Cinzel, serif", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
+      <div style={{ color: C.gold, fontFamily: "Cinzel, serif", fontSize: 18, fontWeight: 700 }}>{value}</div>
+      <div style={{ color: C.muted, fontSize: 10 }}>{sub}</div>
+    </div>
+  ))}
+
+  {/* Edit button */}
+  <button
+    onClick={onEdit}
+    style={{
+      background: "transparent", border: `1px solid ${C.goldDim}`,
+      color: C.muted, padding: "6px 14px",
+      fontFamily: "Cinzel, serif", fontSize: 10, letterSpacing: "0.12em",
+      alignSelf: "flex-start",
+    }}
+  >✎ EDIT</button>
+</div>
+```
+
+);
+}
+
+/* ─────────────────────────────────────────────────────
+STAT CARD
+───────────────────────────────────────────────────── */
+function StatCard({ label, value, sub }) {
+return (
+<div style={{
+background: C.card, border: `1px solid ${C.border}`, borderTop: `2px solid ${C.gold}`,
+padding: “14px 18px”, flex: 1, minWidth: 130,
+}}>
+<div style={{ color: C.muted, fontSize: 10, letterSpacing: “0.18em”, textTransform: “uppercase”, fontFamily: “Cinzel, serif”, marginBottom: 6 }}>{label}</div>
+<div style={{ color: C.gold, fontSize: 24, fontFamily: “Cinzel, serif”, fontWeight: 700, lineHeight: 1 }}>{value}</div>
+{sub && <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>{sub}</div>}
+</div>
+);
+}
+
+/* ─────────────────────────────────────────────────────
+PLAYER TABLE
+───────────────────────────────────────────────────── */
+function PlayerTable({ players, onRemove }) {
+const [sortKey, setSortKey] = useState(“power”);
+const [sortDir, setSortDir] = useState(-1);
+const [search,  setSearch]  = useState(””);
+
+const sorted = useMemo(() => {
+const f = players.filter(p =>
+p.name.toLowerCase().includes(search.toLowerCase()) ||
+p.fid.includes(search) ||
+p.kingdom.toLowerCase().includes(search.toLowerCase())
+);
+return […f].sort((a, b) => sortDir * (a[sortKey] > b[sortKey] ? 1 : -1));
+}, [players, sortKey, sortDir, search]);
+
+const handleSort = (key) => {
+if (key === sortKey) setSortDir(d => -d);
+else { setSortKey(key); setSortDir(-1); }
+};
+const arrow  = (k) => sortKey === k ? (sortDir < 0 ? “ ↓” : “ ↑”) : “”;
+const maxPow = Math.max(…players.map(p => p.power), 1);
+const totPow = players.reduce((s, p) => s + p.power, 0);
+const cellB  = { borderBottom: `1px solid ${C.border}22` };
+
+const thS = (k, align = “right”) => ({
+padding: “8px 12px”, fontFamily: “Cinzel, serif”, fontSize: 10,
+letterSpacing: “0.14em”, textTransform: “uppercase”,
+color: sortKey === k ? C.gold : C.muted,
+cursor: k ? “pointer” : “default”, userSelect: “none”,
+borderBottom: `1px solid ${C.border}`, textAlign: align,
+});
+
+return (
+<div style={{ display: “flex”, flexDirection: “column”, gap: 10 }}>
+<input
+value={search} onChange={e => setSearch(e.target.value)}
+placeholder=“Search by name, FID, or kingdom…”
+style={inp({ borderRadius: 2 })}
+/>
+<div style={{ overflowX: “auto” }}>
+<table style={{ width: “100%”, borderCollapse: “collapse” }}>
+<thead>
+<tr>
+<th style={thS(“name”, “left”)} onClick={() => handleSort(“name”)}>Governor{arrow(“name”)}</th>
+<th style={thS(“power”)}        onClick={() => handleSort(“power”)}>Power{arrow(“power”)}</th>
+<th style={thS(“kills”)}        onClick={() => handleSort(“kills”)}>Kills{arrow(“kills”)}</th>
+<th style={thS(“troops”)}       onClick={() => handleSort(“troops”)}>Troops{arrow(“troops”)}</th>
+<th style={thS(null, “center”)}>Share</th>
+<th style={thS(null)} />
+</tr>
+</thead>
+<tbody>
+{sorted.map((p, i) => {
+const share = totPow > 0 ? ((p.power / totPow) * 100).toFixed(1) : “0.0”;
+const barW  = Math.round((p.power / maxPow) * 100);
+return (
+<tr key={p.id} style={{ background: i % 2 === 0 ? “transparent” : “rgba(255,255,255,0.012)” }}>
+<td style={{ padding: “10px 12px”, …cellB }}>
+<div style={{ display: “flex”, alignItems: “center”, gap: 10 }}>
+<Avatar name={p.name} profilePhoto={p.profilePhoto} size={34} />
+<div>
+<div style={{ color: C.text, fontFamily: “Cinzel, serif”, fontSize: 13 }}>{p.name}</div>
+<div style={{ color: C.muted, fontSize: 11 }}>FID {p.fid} · {p.kingdom}{p.level ? ` · Lv ${p.level}` : “”}</div>
+</div>
+</div>
+</td>
+<td style={{ padding: “10px 12px”, textAlign: “right”, …cellB }}>
+<div style={{ color: C.gold, fontFamily: “Cinzel, serif”, fontSize: 13 }}>{fmt(p.power)}</div>
+<div style={{ marginTop: 4, height: 3, background: C.border, borderRadius: 2, width: 80, marginLeft: “auto” }}>
+<div style={{ height: “100%”, width: `${barW}%`, background: C.gold, borderRadius: 2 }} />
+</div>
+</td>
+<td style={{ padding: “10px 12px”, textAlign: “right”, color: C.text, fontSize: 14, …cellB }}>{fmt(p.kills)}</td>
+<td style={{ padding: “10px 12px”, textAlign: “right”, color: C.text, fontSize: 14, …cellB }}>{fmt(p.troops)}</td>
+<td style={{ padding: “10px 12px”, textAlign: “center”, color: C.accent, fontFamily: “Cinzel, serif”, fontSize: 12, …cellB }}>{share}%</td>
+<td style={{ padding: “10px 8px”, …cellB }}>
+<button onClick={() => onRemove(p.id)} style={{
+background: “none”, border: `1px solid ${C.red}55`, color: C.red,
+padding: “2px 8px”, fontFamily: “Cinzel, serif”, fontSize: 11,
+}}>✕</button>
+</td>
+</tr>
+);
+})}
+</tbody>
+</table>
+{sorted.length === 0 && (
+<div style={{ textAlign: “center”, color: C.muted, padding: “32px 0”, fontSize: 15 }}>No governors found.</div>
+)}
+</div>
+</div>
+);
+}
+
+/* ─────────────────────────────────────────────────────
+ADD ALLIANCE MEMBER FORM
+───────────────────────────────────────────────────── */
+function AddPlayerForm({ onAdd }) {
+const empty = { fid: “”, name: “”, kingdom: “”, level: “”, power: “”, kills: “”, troops: “”, profilePhoto: null };
+const [form, setForm]               = useState(empty);
+const [open, setOpen]               = useState(false);
+const [lookupState, setLookupState] = useState(“idle”);
+
+const set = (k) => (e) => { setForm(f => ({ …f, [k]: e.target.value })); if (k === “fid”) setLookupState(“idle”); };
+
+const doLookup = useCallback(async () => {
+if (form.fid.trim().length < 4) return;
+setLookupState(“loading”);
+const r = await lookupPlayer(form.fid);
+if (!r)      { setLookupState(“idle”); return; }
+if (r.error) { setLookupState(r.error); return; }
+setForm(f => ({ …f, name: r.name || f.name, kingdom: r.kingdom || f.kingdom, level: r.level != null ? String(r.level) : f.level, profilePhoto: r.profilePhoto || null }));
+setLookupState(“found”);
+}, [form.fid]);
+
+const submit = () => {
+if (!form.name || !form.fid) return;
+onAdd({ id: Date.now(), name: form.name.trim(), fid: form.fid.trim(), kingdom: form.kingdom || “K??”, level: parseInt(form.level) || null, power: parseNum(form.power), kills: parseNum(form.kills), troops: parseNum(form.troops), profilePhoto: form.profilePhoto });
+setForm(empty); setLookupState(“idle”); setOpen(false);
+};
+
+const fidBorder = lookupState === “found” ? C.green : (lookupState === “not_found” || lookupState === “network_error”) ? C.red : C.border;
+
+return (
+<div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+<button onClick={() => { setOpen(o => !o); setForm(empty); setLookupState(“idle”); }}
+style={{ background: open ? C.card : “transparent”, border: `1px solid ${C.goldDim}`, color: C.gold, padding: “8px 20px”, fontFamily: “Cinzel, serif”, fontSize: 12, letterSpacing: “0.14em”, display: “flex”, alignItems: “center”, gap: 8 }}>
+<span style={{ fontSize: 16 }}>{open ? “−” : “+”}</span>{open ? “Cancel” : “Enlist Governor”}
+</button>
+
+```
+  {open && (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start", marginBottom: 12 }}>
+        <div style={{ flex: "0 0 200px" }}>
+          {lbl("Player ID (FID) *")}
+          <input type="text" placeholder="e.g. 8767319" value={form.fid} onChange={set("fid")}
+            onBlur={doLookup} onKeyDown={e => { if (e.key === "Enter") doLookup(); }}
+            style={inp({ borderColor: fidBorder })} />
+          <LookupStatus />
+        </div>
+        {form.profilePhoto && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, paddingTop: 20 }}>
+            <Avatar name={form.name} profilePhoto={form.profilePhoto} size={48} />
+            <div style={{ color: C.muted, fontSize: 9, fontFamily: "Cinzel, serif" }}>AVATAR</div>
+          </div>
+        )}
+        <div style={{ flex: "1 1 160px" }}>
+          {lbl("Governor Name *")}
+          <input type="text" placeholder="auto-filled or type manually" value={form.name} onChange={set("name")} style={inp()} />
+        </div>
+        <div style={{ flex: "0 0 90px" }}>
+          {lbl("Kingdom")}
+          <input type="text" placeholder="K47" value={form.kingdom} onChange={set("kingdom")} style={inp()} />
+        </div>
+        <div style={{ flex: "0 0 70px" }}>
+          {lbl("Level")}
+          <input type="text" placeholder="25" value={form.level} onChange={set("level")} style={inp()} />
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        {[["Power","power","421000000"],["Kills","kills","7800000"],["Troops","troops","4200000"]].map(([l,k,ph]) => (
+          <div key={k} style={{ flex: "1 1 130px" }}>
+            {lbl(l)}
+            <input type="text" placeholder={ph} value={form[k]} onChange={set(k)} style={inp()} />
+          </div>
+        ))}
+      </div>
+      <button onClick={submit} disabled={!form.name || !form.fid}
+        style={{ background: form.name && form.fid ? C.gold : C.border, border: "none", color: form.name && form.fid ? C.bg : C.muted, padding: "9px 28px", fontFamily: "Cinzel, serif", fontSize: 12, letterSpacing: "0.12em", fontWeight: 700, cursor: form.name && form.fid ? "pointer" : "not-allowed" }}>
+        Add to Roster
+      </button>
+    </div>
+  )}
+</div>
+```
+
+);
+}
+
+/* ─────────────────────────────────────────────────────
+CHART TOOLTIPS
+───────────────────────────────────────────────────── */
+const LineTooltip = ({ active, payload, label }) => {
+if (!active || !payload?.length) return null;
+return <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: “8px 14px” }}>
+<div style={{ color: C.muted, fontSize: 10, fontFamily: “Cinzel, serif” }}>{label}</div>
+<div style={{ color: C.gold, fontFamily: “Cinzel, serif”, fontSize: 15 }}>{payload[0].value}M</div>
+
+  </div>;
+};
+const BarTooltip = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  return <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: "8px 14px" }}>
+    <div style={{ color: C.text, fontSize: 13 }}>{payload[0].payload.name}</div>
+    <div style={{ color: C.gold, fontFamily: "Cinzel, serif", fontSize: 14 }}>{fmt(payload[0].value)}</div>
+  </div>;
+};
+
+/* ─────────────────────────────────────────────────────
+MAIN DASHBOARD
+───────────────────────────────────────────────────── */
+export default function App() {
+const [profile,      setProfile]      = useState(null);   // null = setup screen
+const [players,      setPlayers]      = useState(INIT_PLAYERS);
+const [allianceName, setAllianceName] = useState(“IRONBOUND”);
+const [editingTitle, setEditingTitle] = useState(false);
+const [titleInput,   setTitleInput]   = useState(“IRONBOUND”);
+const [activeTab,    setActiveTab]    = useState(“roster”);
+
+/* If no profile yet, show the setup screen */
+if (!profile) {
+return <MyProfileSetup onSave={(p) => setProfile(p)} />;
+}
+
+/* Combined totals include the logged-in user */
+const allMembers  = [{ …profile, id: “me” }, …players];
+const totPower    = allMembers.reduce((s, p) => s + p.power, 0);
+const totKills    = allMembers.reduce((s, p) => s + p.kills, 0);
+const avgPower    = allMembers.length ? Math.round(totPower / allMembers.length) : 0;
+
+const topByPower  = useMemo(() =>
+[…allMembers].sort((a, b) => b.power - a.power).slice(0, 8)
+.map(p => ({ name: p.name.slice(0, 10), power: p.power, isMe: p.id === “me” }))
+, [allMembers]);
+const topByKills  = useMemo(() =>
+[…allMembers].sort((a, b) => b.kills - a.kills).slice(0, 8)
+.map(p => ({ name: p.name.slice(0, 10), kills: p.kills, isMe: p.id === “me” }))
+, [allMembers]);
+
+const removePlayer = (id) => setPlayers(ps => ps.filter(p => p.id !== id));
+const addPlayer    = (p)  => setPlayers(ps => […ps, p]);
+
+const tabBtn = (key, label) => (
+<button onClick={() => setActiveTab(key)} style={{
+background: activeTab === key ? C.card : “transparent”,
+border: `1px solid ${activeTab === key ? C.gold : C.border}`,
+color: activeTab === key ? C.gold : C.muted,
+padding: “6px 18px”, fontFamily: “Cinzel, serif”, fontSize: 11,
+letterSpacing: “0.14em”, cursor: “pointer”,
+}}>{label}</button>
+);
+
+return (
+<div style={{ background: C.bg, minHeight: “100vh”, color: C.text, fontFamily: “‘Crimson Pro’, serif” }}>
+<style>{`@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300&display=swap'); * { box-sizing: border-box; } ::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-track { background: ${C.surface}; } ::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 3px; } input::placeholder { color: ${C.muted}55; } button { transition: opacity 0.15s; cursor: pointer; } button:hover:not(:disabled) { opacity: 0.82; }`}</style>
+
+```
+  {/* ── HEADER ── */}
+  <div style={{ borderBottom: `1px solid ${C.border}`, background: `linear-gradient(180deg, ${C.surface} 0%, ${C.bg} 100%)`, padding: "0 28px" }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 16, paddingBottom: 6 }}>
+      <div style={{ fontSize: 10, color: C.muted, fontFamily: "Cinzel, serif", letterSpacing: "0.2em" }}>⚔ ALLIANCE COMMAND</div>
+      <div style={{ fontSize: 10, color: C.muted, fontFamily: "Cinzel, serif", letterSpacing: "0.16em" }}>
+        {allMembers.length} GOVERNORS
+      </div>
+    </div>
+
+    {/* Alliance name */}
+    <div style={{ paddingBottom: 14, display: "flex", alignItems: "baseline", gap: 14 }}>
+      {editingTitle ? (
+        <input value={titleInput} onChange={e => setTitleInput(e.target.value)}
+          onBlur={() => { setAllianceName(titleInput || allianceName); setEditingTitle(false); }}
+          onKeyDown={e => { if (e.key === "Enter") { setAllianceName(titleInput || allianceName); setEditingTitle(false); } }}
+          autoFocus
+          style={{ background: "transparent", border: "none", borderBottom: `2px solid ${C.gold}`, color: C.gold, fontFamily: "Cinzel, serif", fontSize: 28, fontWeight: 900, letterSpacing: "0.08em", outline: "none", minWidth: 200 }} />
+      ) : (
+        <h1 onClick={() => { setTitleInput(allianceName); setEditingTitle(true); }}
+          style={{ margin: 0, fontFamily: "Cinzel, serif", fontWeight: 900, fontSize: 28, color: C.gold, letterSpacing: "0.06em", cursor: "pointer" }}>
+          {allianceName}
+        </h1>
+      )}
+      <span style={{ fontSize: 10, color: C.muted, fontFamily: "Cinzel, serif", letterSpacing: "0.16em" }}>click to rename</span>
+    </div>
+
+    {/* Stat cards */}
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", paddingBottom: 18 }}>
+      <StatCard label="Total Power"   value={fmt(totPower)}  sub={fmtFull(totPower)} />
+      <StatCard label="Total Kills"   value={fmt(totKills)}  sub={fmtFull(totKills)} />
+      <StatCard label="Members"       value={allMembers.length} sub="including you" />
+      <StatCard label="Average Power" value={fmt(avgPower)}  sub="per governor" />
+    </div>
+  </div>
+
+  {/* ── BODY ── */}
+  <div style={{ padding: "24px 28px", maxWidth: 1200, margin: "0 auto" }}>
+
+    {/* My Profile card — always visible */}
+    <div style={{ marginBottom: 20 }}>
+      <MyProfileCard profile={profile} allPlayers={players} onEdit={() => setProfile(null)} />
+    </div>
+
+    {/* Tabs */}
+    <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      {tabBtn("roster", "Alliance Roster")}
+      {tabBtn("charts", "War Charts")}
+    </div>
+
+    {/* ── ROSTER ── */}
+    {activeTab === "roster" && (
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: "20px 20px 16px" }}>
+        <div style={{ fontFamily: "Cinzel, serif", fontSize: 11, letterSpacing: "0.18em", color: C.muted, marginBottom: 14 }}>
+          ⚔ ALLIANCE MEMBERS — click column headers to sort
+        </div>
+        <PlayerTable players={players} onRemove={removePlayer} />
+        <div style={{ marginTop: 16 }}>
+          <AddPlayerForm onAdd={addPlayer} />
+        </div>
+      </div>
+    )}
+
+    {/* ── CHARTS ── */}
+    {activeTab === "charts" && (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 20 }}>
+          <div style={{ fontFamily: "Cinzel, serif", fontSize: 11, letterSpacing: "0.18em", color: C.muted, marginBottom: 18 }}>⚔ ALLIANCE POWER TREND (MILLIONS)</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={POWER_HISTORY} margin={{ top: 4, right: 20, bottom: 0, left: 0 }}>
+              <CartesianGrid stroke={C.border} strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: C.muted, fontSize: 11, fontFamily: "Cinzel, serif" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: C.muted, fontSize: 11 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} />
+              <Tooltip content={<LineTooltip />} />
+              <Line type="monotone" dataKey="total" stroke={C.gold} strokeWidth={2} dot={{ fill: C.gold, r: 4 }} activeDot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+          {[
+            { title: "TOP BY POWER", data: topByPower, key: "power", color: C.gold },
+            { title: "TOP BY KILLS", data: topByKills, key: "kills", color: C.accent },
+          ].map(({ title, data, key, color }) => (
+            <div key={key} style={{ background: C.card, border: `1px solid ${C.border}`, padding: 20, flex: "1 1 300px" }}>
+              <div style={{ fontFamily: "Cinzel, serif", fontSize: 11, letterSpacing: "0.18em", color: C.muted, marginBottom: 18 }}>⚔ {title}</div>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={data} layout="vertical" margin={{ top: 0, right: 20, left: 70, bottom: 0 }}>
+                  <XAxis type="number" tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmt} />
+                  <YAxis type="category" dataKey="name" tick={{ fill: C.text, fontSize: 11, fontFamily: "'Crimson Pro', serif" }} axisLine={false} tickLine={false} width={68} />
+                  <Tooltip content={<BarTooltip />} />
+                  <Bar dataKey={key} radius={[0, 2, 2, 0]} opacity={0.85}>
+                    {data.map((entry, i) => (
+                      <rect key={i} fill={entry.isMe ? C.gold : color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ))}
+        </div>
+
+        {/* Power share — includes the logged-in user */}
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, padding: 20 }}>
+          <div style={{ fontFamily: "Cinzel, serif", fontSize: 11, letterSpacing: "0.18em", color: C.muted, marginBottom: 16 }}>⚔ POWER SHARE DISTRIBUTION</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {[...allMembers].sort((a, b) => b.power - a.power).map(p => {
+              const pct   = totPower > 0 ? (p.power / totPower * 100) : 0;
+              const isMe  = p.id === "me";
+              return (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Avatar name={p.name} profilePhoto={p.profilePhoto} size={24} />
+                  <div style={{
+                    width: 90, fontSize: 13, flexShrink: 0, whiteSpace: "nowrap",
+                    overflow: "hidden", textOverflow: "ellipsis",
+                    color: isMe ? C.gold : C.text,
+                    fontFamily: isMe ? "Cinzel, serif" : "'Crimson Pro', serif",
+                    fontWeight: isMe ? 700 : 400,
+                  }}>{p.name}{isMe ? " ★" : ""}</div>
+                  <div style={{ flex: 1, height: 8, background: C.surface, borderRadius: 2 }}>
+                    <div style={{
+                      height: "100%", width: `${pct}%`, borderRadius: 2,
+                      background: isMe
+                        ? `linear-gradient(90deg, ${C.gold}, #f0c060)`
+                        : `linear-gradient(90deg, ${C.goldDim}88, ${C.accent}88)`,
+                    }} />
+                  </div>
+                  <div style={{ width: 44, textAlign: "right", color: isMe ? C.gold : C.muted, fontFamily: "Cinzel, serif", fontSize: 12 }}>{pct.toFixed(1)}%</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* ── FOOTER ── */}
+  <div style={{ borderTop: `1px solid ${C.border}`, padding: "12px 28px", display: "flex", justifyContent: "space-between", marginTop: 20 }}>
+    <div style={{ fontSize: 10, color: C.muted, fontFamily: "Cinzel, serif", letterSpacing: "0.16em" }}>KINGSHOT ALLIANCE TRACKER · KINGSHOT.NET API</div>
+    <div style={{ fontSize: 10, color: C.muted, fontFamily: "Cinzel, serif", letterSpacing: "0.12em" }}>
+      {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toUpperCase()}
+    </div>
+  </div>
+</div>
+```
+
+);
+}
+  </script>
+
+  <!-- Renders the App component into the #root div above -->
+
+  <script type="text/babel">
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+
+</body>
+</html>
