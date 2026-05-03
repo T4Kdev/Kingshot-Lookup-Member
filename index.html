@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Kingshot Alliance Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:wght@300;400;600&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0d0b09;color:#e8dcc8;font-family:'Crimson Pro',serif;min-height:100vh}
+  ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#332a1e;border-radius:3px}
+  input{background:#161210;border:1px solid #332a1e;color:#e8dcc8;padding:8px 12px;font-family:'Crimson Pro',serif;font-size:14px;outline:none;width:100%}
+  input::placeholder{color:#7a6a5588}
+  button{cursor:pointer;transition:opacity .15s;font-family:'Crimson Pro',serif}
+  button:hover{opacity:.85}
+  .cinzel{font-family:'Cinzel',serif}
+  #setup-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+  #app-screen{display:none}
+  .setup-card{background:#1d1912;border:1px solid #332a1e;border-top:3px solid #c9a044;padding:36px 40px;width:100%;max-width:520px}
+  .setup-title{text-align:center;margin-bottom:28px}
+  .setup-title h1{font-family:'Cinzel',serif;font-size:24px;font-weight:900;color:#c9a044;letter-spacing:.06em}
+  .setup-title p{color:#7a6a55;font-size:14px;margin-top:8px;line-height:1.6}
+  .field{margin-bottom:16px}
+  .field label{display:block;color:#7a6a55;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:4px}
+  .field-row{display:flex;gap:12px;flex-wrap:wrap}
+  .field-row .field{flex:1;min-width:120px}
+  .section-label{color:#7a6a55;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:12px;padding-top:16px;border-top:1px solid #332a1e;margin-top:4px}
+  .btn-gold{background:#c9a044;border:none;color:#0d0b09;padding:12px 0;width:100%;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;font-weight:700;margin-top:20px}
+  .status-msg{font-size:11px;margin-top:4px;line-height:1.5}
+  #header{background:linear-gradient(180deg,#161210 0%,#0d0b09 100%);border-bottom:1px solid #332a1e;padding:16px 24px}
+  .header-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .header-label{font-family:'Cinzel',serif;font-size:10px;color:#7a6a55;letter-spacing:.2em}
+  #alliance-name-btn{font-family:'Cinzel',serif;font-size:26px;font-weight:900;color:#c9a044;letter-spacing:.06em;background:none;border:none;border-bottom:2px solid transparent;padding:0}
+  #alliance-name-btn:hover{border-bottom-color:#c9a04466}
+  .stat-cards{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .stat-card{background:#1d1912;border:1px solid #332a1e;border-top:2px solid #c9a044;padding:14px 18px;flex:1;min-width:130px}
+  .stat-card .slabel{font-family:'Cinzel',serif;font-size:10px;color:#7a6a55;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px}
+  .stat-card .svalue{font-family:'Cinzel',serif;font-size:22px;font-weight:700;color:#c9a044;line-height:1}
+  .stat-card .ssub{font-size:11px;color:#7a6a55;margin-top:4px}
+  #my-profile-card{background:linear-gradient(135deg,#1d1912,#221c14);border:1px solid #c9a04444;border-left:4px solid #c9a044;padding:20px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+  .profile-stat{text-align:center;min-width:80px}
+  .profile-stat .ps-label{font-family:'Cinzel',serif;font-size:9px;color:#7a6a55;letter-spacing:.16em;text-transform:uppercase;margin-bottom:4px}
+  .profile-stat .ps-value{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#c9a044}
+  .profile-stat .ps-sub{font-size:10px;color:#7a6a55}
+  .avatar{border-radius:50%;border:2px solid #7a6030;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:700;color:#c9a044;background:linear-gradient(135deg,#7a603055,#332a1e);flex-shrink:0;overflow:hidden}
+  .avatar img{width:100%;height:100%;object-fit:cover}
+  .tabs{display:flex;gap:8px;margin-bottom:20px}
+  .tab-btn{background:transparent;border:1px solid #332a1e;color:#7a6a55;padding:6px 18px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em}
+  .tab-btn.active{background:#1d1912;border-color:#c9a044;color:#c9a044}
+  .card{background:#1d1912;border:1px solid #332a1e;padding:20px}
+  .card-label{font-family:'Cinzel',serif;font-size:11px;color:#7a6a55;letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse}
+  th{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#7a6a55;padding:8px 12px;border-bottom:1px solid #332a1e;cursor:pointer;white-space:nowrap;user-select:none}
+  th:hover,th.sorted{color:#c9a044}
+  td{padding:10px 12px;border-bottom:1px solid #332a1e11;font-size:13px;vertical-align:middle}
+  tr:nth-child(even){background:rgba(255,255,255,.012)}
+  .power-bar-bg{height:3px;background:#332a1e;border-radius:2px;width:80px;margin:4px 0 0 auto}
+  .power-bar-fill{height:100%;background:#c9a044;border-radius:2px}
+  .btn-remove{background:none;border:1px solid #8b1a2a55;color:#8b1a2a;padding:2px 8px;font-size:11px;font-family:'Cinzel',serif}
+  .tab-content{display:none}
+  .tab-content.active{display:block}
+  .chart-section{display:flex;flex-direction:column;gap:20px}
+  .bar-chart{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+  .bar-row{display:flex;align-items:center;gap:12px}
+  .bar-name{width:110px;font-size:13px;color:#e8dcc8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+  .bar-name.me{color:#c9a044;font-family:'Cinzel',serif;font-weight:700}
+  .bar-track{flex:1;height:12px;background:#161210;border-radius:2px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:2px}
+  .bar-val{width:52px;text-align:right;font-family:'Cinzel',serif;font-size:12px;color:#c9a044;flex-shrink:0}
+  #app-body{padding:24px;max-width:1100px;margin:0 auto}
+  footer{border-top:1px solid #332a1e;padding:12px 24px;display:flex;justify-content:space-between;margin-top:20px}
+  footer span{font-family:'Cinzel',serif;font-size:10px;color:#7a6a55;letter-spacing:.14em}
+  .btn-edit{background:transparent;border:1px solid #7a6030;color:#7a6a55;padding:6px 14px;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;align-self:flex-start}
+  .info-note{background:#3a6b4818;border:1px solid #3a6b4844;padding:10px 16px;margin-bottom:20px;font-size:12px;color:#e8dcc8;display:flex;gap:10px;align-items:center}
+  .lbl{display:block;color:#7a6a55;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:4px}
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+
+<div id="setup-screen">
+  <div class="setup-card">
+    <div class="setup-title">
+      <div class="cinzel" style="font-size:11px;color:#7a6a55;letter-spacing:.22em;margin-bottom:8px">KINGSHOT ALLIANCE TRACKER</div>
+      <h1>Set Up Your Profile</h1>
+      <p>Enter your Player ID and stats to get started.</p>
+    </div>
+    <div class="field">
+      <label>Your Player ID (FID) *</label>
+      <input type="text" id="setup-fid" placeholder="e.g. 8767319"/>
+      <div class="status-msg" id="setup-status" style="color:#7a6a55">Tab or Enter after FID to auto-lookup name and kingdom</div>
+    </div>
+    <div id="profile-preview" style="display:none;background:#161210;border:1px solid #332a1e;padding:14px 16px;margin-bottom:16px;align-items:center;gap:14px">
+      <div class="avatar" id="preview-avatar" style="width:52px;height:52px;font-size:18px"></div>
+      <div>
+        <div id="preview-name" style="font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#c9a044"></div>
+        <div id="preview-sub" style="color:#7a6a55;font-size:12px;margin-top:2px"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Governor Name *</label>
+      <input type="text" id="setup-name" placeholder="Enter manually if not auto-filled"/>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Kingdom</label><input type="text" id="setup-kingdom" placeholder="K47"/></div>
+      <div class="field"><label>Level</label><input type="text" id="setup-level" placeholder="25"/></div>
+    </div>
+    <div class="section-label">YOUR COMBAT STATS (from in-game profile)</div>
+    <div class="field-row">
+      <div class="field"><label>Power</label><input type="text" id="setup-power" placeholder="421000000"/></div>
+      <div class="field"><label>Kills</label><input type="text" id="setup-kills" placeholder="7800000"/></div>
+      <div class="field"><label>Troops</label><input type="text" id="setup-troops" placeholder="4200000"/></div>
+    </div>
+    <button class="btn-gold" onclick="saveProfile()">ENTER THE WAR ROOM</button>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+
+<div id="app-screen">
+  <div id="header">
+    <div class="header-top">
+      <span class="header-label cinzel">ALLIANCE COMMAND</span>
+      <span class="header-label cinzel" id="member-count">0 GOVERNORS</span>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:14px">
+      <button id="alliance-name-btn" class="cinzel" onclick="editAllianceName()">IRONBOUND</button>
+      <span class="cinzel" style="font-size:10px;color:#7a6a55;letter-spacing:.16em">click to rename</span>
+    </div>
+    <div class="stat-cards" id="stat-cards"></div>
+  </div>
+
+  <div id="app-body">
+    <div id="my-profile-card"></div>
+
+```
+<div class="info-note">
+  <span style="color:#3a6b48;font-size:16px">i</span>
+  <span>FID auto-lookup is active on this live site. Type a player FID in the form below and press Tab or Enter to auto-fill their name and kingdom from kingshot.net.</span>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active cinzel" onclick="switchTab('roster',this)">Alliance Roster</button>
+  <button class="tab-btn cinzel" onclick="switchTab('charts',this)">War Charts</button>
+</div>
+
+<div id="tab-roster" class="tab-content active">
+  <div class="card">
+    <div class="card-label">Alliance Members — click headers to sort</div>
+    <input type="text" id="search" placeholder="Search by name, FID, or kingdom…" oninput="renderTable()" style="margin-bottom:12px"/>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th onclick="sortBy('name')" id="th-name" style="text-align:left">Governor</th>
+          <th onclick="sortBy('power')" id="th-power" class="sorted" style="text-align:right">Power</th>
+          <th onclick="sortBy('kills')" id="th-kills" style="text-align:right">Kills</th>
+          <th onclick="sortBy('troops')" id="th-troops" style="text-align:right">Troops</th>
+          <th style="text-align:center">Share</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="roster-body"></tbody>
+      </table>
+    </div>
+    <div id="no-results" style="display:none;text-align:center;color:#7a6a55;padding:32px 0;font-size:15px">No governors found.</div>
+
+    <div style="border-top:1px solid #332a1e;padding-top:16px;margin-top:16px">
+      <button class="cinzel" id="add-toggle-btn" onclick="toggleAddForm()"
+        style="background:transparent;border:1px solid #7a6030;color:#c9a044;padding:8px 20px;font-size:12px;letter-spacing:.14em">
+        + Enlist Governor
+      </button>
+      <div id="add-form" style="display:none;margin-top:14px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+          <div style="flex:0 0 190px">
+            <label class="lbl">Player ID (FID) *</label>
+            <input type="text" id="add-fid" placeholder="e.g. 8767319" onblur="doAddLookup()" onkeydown="if(event.key==='Enter')doAddLookup()"/>
+            <div id="add-status" class="status-msg" style="color:#7a6a55">Tab or Enter after FID to auto-lookup</div>
+          </div>
+          <div style="flex:1 1 150px"><label class="lbl">Governor Name *</label><input type="text" id="add-name" placeholder="auto-filled or type manually"/></div>
+          <div style="flex:0 0 90px"><label class="lbl">Kingdom</label><input type="text" id="add-kingdom" placeholder="K47"/></div>
+          <div style="flex:0 0 70px"><label class="lbl">Level</label><input type="text" id="add-level" placeholder="25"/></div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+          <div style="flex:1 1 130px"><label class="lbl">Power</label><input type="text" id="add-power" placeholder="421000000"/></div>
+          <div style="flex:1 1 130px"><label class="lbl">Kills</label><input type="text" id="add-kills" placeholder="7800000"/></div>
+          <div style="flex:1 1 130px"><label class="lbl">Troops</label><input type="text" id="add-troops" placeholder="4200000"/></div>
+        </div>
+        <button onclick="addPlayer()" style="background:#c9a044;border:none;color:#0d0b09;padding:9px 28px;font-family:'Cinzel',serif;font-size:12px;letter-spacing:.12em;font-weight:700">Add to Roster</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tab-charts" class="tab-content">
+  <div class="chart-section">
+    <div class="card"><div class="card-label">Power by Governor</div><div class="bar-chart" id="chart-power"></div></div>
+    <div class="card"><div class="card-label">Kills by Governor</div><div class="bar-chart" id="chart-kills"></div></div>
+    <div class="card"><div class="card-label">Power Share Distribution</div><div class="bar-chart" id="chart-share"></div></div>
+  </div>
+</div>
+```
+
+  </div>
+
+  <footer>
+    <span>KINGSHOT ALLIANCE TRACKER</span>
+    <span id="footer-date"></span>
+  </footer>
+</div>
+
+<script>
+var myProfile=null, players=[], sortKey='power', sortDir=-1;
+
+function fmt(n){
+  if(!n||n===0)return'0';
+  if(n>=1e9)return(n/1e9).toFixed(2)+'B';
+  if(n>=1e6)return(n/1e6).toFixed(1)+'M';
+  if(n>=1e3)return(n/1e3).toFixed(0)+'K';
+  return String(n);
+}
+function parseNum(s){return parseInt((s||'').replace(/,/g,''))||0;}
+function initials(n){return n?n.slice(0,2).toUpperCase():'?';}
+function avatarHTML(name,photo,size){
+  var s=size||40;
+  var base='border-radius:50%;border:2px solid #7a6030;display:inline-flex;align-items:center;justify-content:center;font-family:Cinzel,serif;font-weight:700;color:#c9a044;background:linear-gradient(135deg,#7a603055,#332a1e);flex-shrink:0;overflow:hidden;width:'+s+'px;height:'+s+'px;font-size:'+Math.round(s*.34)+'px;vertical-align:middle;';
+  if(photo)return '<div style="'+base+'"><img src="'+photo+'" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'"/></div>';
+  return '<div style="'+base+'">'+initials(name)+'</div>';
+}
+function allMembers(){return myProfile?[Object.assign({id:'me'},myProfile)].concat(players):players.slice();}
+function totalPower(){return allMembers().reduce(function(s,p){return s+p.power;},0);}
+function totalKills(){return allMembers().reduce(function(s,p){return s+p.kills;},0);}
+
+// FID Lookup
+async function lookupFID(fid){
+  if(!fid||fid.trim().length<4)return null;
+  var proxies=[
+    function(u){return'https://api.allorigins.win/raw?url='+encodeURIComponent(u);},
+    function(u){return'https://corsproxy.io/?url='+encodeURIComponent(u);}
+  ];
+  var target='https://kingshot.net/api/player-info?playerId='+fid.trim();
+  for(var i=0;i<proxies.length;i++){
+    try{
+      var res=await fetch(proxies[i](target),{signal:AbortSignal.timeout(7000)});
+      if(!res.ok)continue;
+      var json=await res.json();
+      if(json.status==='success'&&json.data)return json.data;
+    }catch(e){}
+  }
+  return null;
+}
+
+// Setup screen
+document.getElementById('setup-fid').addEventListener('blur',doSetupLookup);
+document.getElementById('setup-fid').addEventListener('keydown',function(e){if(e.key==='Enter')doSetupLookup();});
+
+async function doSetupLookup(){
+  var fid=document.getElementById('setup-fid').value.trim();
+  if(fid.length<4)return;
+  var st=document.getElementById('setup-status');
+  st.style.color='#7a6a55';st.textContent='Looking up player...';
+  var data=await lookupFID(fid);
+  if(data){
+    document.getElementById('setup-name').value=data.name||'';
+    document.getElementById('setup-kingdom').value=data.kingdom?'K'+data.kingdom:'';
+    document.getElementById('setup-level').value=data.level!=null?data.level:'';
+    st.style.color='#3a6b48';st.textContent='Found — name and kingdom filled in';
+    var prev=document.getElementById('profile-preview');
+    prev.style.display='flex';
+    document.getElementById('preview-avatar').innerHTML=data.profilePhoto?'<img src="'+data.profilePhoto+'" style="width:100%;height:100%;object-fit:cover"/>':initials(data.name);
+    document.getElementById('preview-name').textContent=data.name||'';
+    document.getElementById('preview-sub').textContent='K'+(data.kingdom||'?')+(data.level?' · Level '+data.level:'')+' · FID '+fid;
+  } else {
+    st.style.color='#7a6a55';st.textContent='Not found or network unavailable — enter details manually below';
+  }
+}
+
+function saveProfile(){
+  var name=document.getElementById('setup-name').value.trim();
+  var fid=document.getElementById('setup-fid').value.trim();
+  if(!name||!fid){alert('Please enter at least your Player ID and Governor Name.');return;}
+  myProfile={fid:fid,name:name,kingdom:document.getElementById('setup-kingdom').value.trim()||'K??',level:parseInt(document.getElementById('setup-level').value)||null,power:parseNum(document.getElementById('setup-power').value),kills:parseNum(document.getElementById('setup-kills').value),troops:parseNum(document.getElementById('setup-troops').value),profilePhoto:null};
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('app-screen').style.display='block';
+  document.getElementById('footer-date').textContent=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}).toUpperCase();
+  refresh();
+}
+
+function refresh(){renderHeader();renderProfileCard();renderTable();renderCharts();}
+
+function renderHeader(){
+  var all=allMembers(),tp=totalPower(),tk=totalKills(),avg=all.length?Math.round(tp/all.length):0;
+  document.getElementById('member-count').textContent=all.length+' GOVERNORS';
+  document.getElementById('stat-cards').innerHTML=
+    '<div class="stat-card"><div class="slabel">Total Power</div><div class="svalue">'+fmt(tp)+'</div><div class="ssub">'+tp.toLocaleString()+'</div></div>'+
+    '<div class="stat-card"><div class="slabel">Total Kills</div><div class="svalue">'+fmt(tk)+'</div><div class="ssub">'+tk.toLocaleString()+'</div></div>'+
+    '<div class="stat-card"><div class="slabel">Members</div><div class="svalue">'+all.length+'</div><div class="ssub">including you</div></div>'+
+    '<div class="stat-card"><div class="slabel">Avg Power</div><div class="svalue">'+fmt(avg)+'</div><div class="ssub">per governor</div></div>';
+}
+
+function editAllianceName(){
+  var current=document.getElementById('alliance-name-btn').textContent;
+  var val=prompt('Enter new alliance name:',current);
+  if(val&&val.trim())document.getElementById('alliance-name-btn').textContent=val.trim().toUpperCase();
+}
+
+function renderProfileCard(){
+  if(!myProfile)return;
+  var all=allMembers(),tp=totalPower();
+  var share=tp>0?((myProfile.power/tp)*100).toFixed(1):'0.0';
+  var sorted=all.slice().sort(function(a,b){return b.power-a.power;});
+  var rank=sorted.findIndex(function(p){return p.id==='me';})+1;
+  document.getElementById('my-profile-card').innerHTML=
+    avatarHTML(myProfile.name,myProfile.profilePhoto,56)+
+    '<div style="flex:1 1 180px"><div class="cinzel" style="font-size:10px;color:#7a6030;letter-spacing:.2em;margin-bottom:4px">YOUR GOVERNOR</div>'+
+    '<div style="font-family:Cinzel,serif;font-size:18px;font-weight:900;color:#c9a044">'+myProfile.name+'</div>'+
+    '<div style="color:#7a6a55;font-size:12px;margin-top:2px">FID '+myProfile.fid+' · '+myProfile.kingdom+(myProfile.level?' · Level '+myProfile.level:'')+'</div></div>'+
+    '<div class="profile-stat"><div class="ps-label">Power</div><div class="ps-value">'+fmt(myProfile.power)+'</div><div class="ps-sub">'+myProfile.power.toLocaleString()+'</div></div>'+
+    '<div class="profile-stat"><div class="ps-label">Kills</div><div class="ps-value">'+fmt(myProfile.kills)+'</div><div class="ps-sub">'+myProfile.kills.toLocaleString()+'</div></div>'+
+    '<div class="profile-stat"><div class="ps-label">Troops</div><div class="ps-value">'+fmt(myProfile.troops)+'</div><div class="ps-sub">'+myProfile.troops.toLocaleString()+'</div></div>'+
+    '<div class="profile-stat"><div class="ps-label">Alliance Rank</div><div class="ps-value">#'+rank+'</div><div class="ps-sub">'+share+'% of power</div></div>'+
+    '<button class="btn-edit cinzel" onclick="editProfile()">EDIT</button>';
+}
+
+function editProfile(){
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('setup-screen').style.display='flex';
+  if(myProfile){
+    document.getElementById('setup-fid').value=myProfile.fid||'';
+    document.getElementById('setup-name').value=myProfile.name||'';
+    document.getElementById('setup-kingdom').value=myProfile.kingdom||'';
+    document.getElementById('setup-level').value=myProfile.level||'';
+    document.getElementById('setup-power').value=myProfile.power||'';
+    document.getElementById('setup-kills').value=myProfile.kills||'';
+    document.getElementById('setup-troops').value=myProfile.troops||'';
+  }
+}
+
+function sortBy(key){
+  if(sortKey===key)sortDir*=-1;else{sortKey=key;sortDir=-1;}
+  document.querySelectorAll('th').forEach(function(t){t.classList.remove('sorted');});
+  var th=document.getElementById('th-'+key);
+  if(th)th.classList.add('sorted');
+  renderTable();
+}
+
+function renderTable(){
+  var search=(document.getElementById('search').value||'').toLowerCase();
+  var all=allMembers(),tp=totalPower(),maxP=Math.max.apply(null,players.map(function(p){return p.power;}).concat([1]));
+  var rows=players.filter(function(p){return p.name.toLowerCase().indexOf(search)>=0||p.fid.indexOf(search)>=0||p.kingdom.toLowerCase().indexOf(search)>=0;});
+  rows.sort(function(a,b){return sortDir*(a[sortKey]>b[sortKey]?1:-1);});
+  document.getElementById('no-results').style.display=rows.length?'none':'block';
+  document.getElementById('roster-body').innerHTML=rows.map(function(p){
+    var share=tp>0?((p.power/tp)*100).toFixed(1):'0.0';
+    var barW=Math.round((p.power/maxP)*100);
+    return '<tr><td><div style="display:flex;align-items:center;gap:10px">'+avatarHTML(p.name,p.profilePhoto,34)+
+      '<div><div style="color:#e8dcc8;font-family:Cinzel,serif;font-size:13px">'+p.name+'</div>'+
+      '<div style="color:#7a6a55;font-size:11px">FID '+p.fid+' · '+p.kingdom+(p.level?' · Lv '+p.level:'')+'</div></div></div></td>'+
+      '<td style="text-align:right"><div style="color:#c9a044;font-family:Cinzel,serif;font-size:13px">'+fmt(p.power)+'</div>'+
+      '<div class="power-bar-bg"><div class="power-bar-fill" style="width:'+barW+'%"></div></div></td>'+
+      '<td style="text-align:right;color:#e8dcc8">'+fmt(p.kills)+'</td>'+
+      '<td style="text-align:right;color:#e8dcc8">'+fmt(p.troops)+'</td>'+
+      '<td style="text-align:center;color:#b87333;font-family:Cinzel,serif;font-size:12px">'+share+'%</td>'+
+      '<td><button class="btn-remove cinzel" onclick="removePlayer('+p.id+')">X</button></td></tr>';
+  }).join('');
+}
+
+function removePlayer(id){players=players.filter(function(p){return p.id!==id;});refresh();}
+
+function toggleAddForm(){
+  var f=document.getElementById('add-form'),btn=document.getElementById('add-toggle-btn');
+  if(f.style.display==='none'){f.style.display='block';btn.textContent='- Cancel';}
+  else{f.style.display='none';btn.textContent='+ Enlist Governor';}
+}
+
+async function doAddLookup(){
+  var fid=document.getElementById('add-fid').value.trim();
+  if(fid.length<4)return;
+  var st=document.getElementById('add-status');
+  st.style.color='#7a6a55';st.textContent='Looking up...';
+  var data=await lookupFID(fid);
+  if(data){
+    document.getElementById('add-name').value=data.name||'';
+    document.getElementById('add-kingdom').value=data.kingdom?'K'+data.kingdom:'';
+    document.getElementById('add-level').value=data.level!=null?data.level:'';
+    st.style.color='#3a6b48';st.textContent='Found — name and kingdom filled in';
+  } else {
+    st.style.color='#7a6a55';st.textContent='Not found — enter manually';
+  }
+}
+
+function addPlayer(){
+  var name=document.getElementById('add-name').value.trim(),fid=document.getElementById('add-fid').value.trim();
+  if(!name||!fid)return;
+  players.push({id:Date.now(),name:name,fid:fid,kingdom:document.getElementById('add-kingdom').value.trim()||'K??',level:parseInt(document.getElementById('add-level').value)||null,power:parseNum(document.getElementById('add-power').value),kills:parseNum(document.getElementById('add-kills').value),troops:parseNum(document.getElementById('add-troops').value),profilePhoto:null});
+  ['add-fid','add-name','add-kingdom','add-level','add-power','add-kills','add-troops'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('add-status').textContent='Tab or Enter after FID to auto-lookup';
+  toggleAddForm();refresh();
+}
+
+function renderCharts(){
+  var all=allMembers().slice().sort(function(a,b){return b.power-a.power;});
+  var tp=totalPower();
+  var maxP=Math.max.apply(null,all.map(function(p){return p.power;}).concat([1]));
+  var maxK=Math.max.apply(null,all.map(function(p){return p.kills;}).concat([1]));
+  function bar(p,val,max,color,altColor){
+    var w=Math.round((val/max)*100);
+    var me=p.id==='me';
+    return '<div class="bar-row">'+
+      '<div class="bar-name'+(me?' me':'')+'">'+p.name+(me?' *':'')+'</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+w+'%;background:'+(me?color:altColor)+'"></div></div>'+
+      '<div class="bar-val">'+fmt(val)+'</div></div>';
+  }
+  document.getElementById('chart-power').innerHTML=all.slice(0,10).map(function(p){return bar(p,p.power,maxP,'linear-gradient(90deg,#c9a044,#f0c060)','linear-gradient(90deg,#7a603088,#b8733388)');}).join('');
+  var byKills=all.slice().sort(function(a,b){return b.kills-a.kills;});
+  document.getElementById('chart-kills').innerHTML=byKills.slice(0,10).map(function(p){return bar(p,p.kills,maxK,'linear-gradient(90deg,#c9a044,#f0c060)','linear-gradient(90deg,#b8733366,#b87333aa)');}).join('');
+  document.getElementById('chart-share').innerHTML=all.map(function(p){
+    var pct=tp>0?(p.power/tp*100):0;
+    var me=p.id==='me';
+    return '<div class="bar-row">'+
+      '<div class="bar-name'+(me?' me':'')+'">'+p.name+(me?' *':'')+'</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+(me?'linear-gradient(90deg,#c9a044,#f0c060)':'linear-gradient(90deg,#7a603066,#b8733366)')+'"></div></div>'+
+      '<div class="bar-val" style="color:#b87333">'+pct.toFixed(1)+'%</div></div>';
+  }).join('');
+}
+
+function switchTab(name,btn){
+  document.querySelectorAll('.tab-content').forEach(function(t){t.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='charts')renderCharts();
+}
+</script>
+
+</body>
+</html>
